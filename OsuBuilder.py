@@ -2,56 +2,95 @@ import os
 from pathlib import Path
 import shutil
 
+from cv2 import DISOpticalFlow_PRESET_MEDIUM
+
 BASE_DIR = Path(__file__).resolve().parent
 
 class OsuBuilder:
-    def __init__(self, title="Song", artist="Artist", creator="Bot", version="Normal"):
+    def __init__(self, title="Song", artist="Artist", creator="Bot", version="Normal",
+            cs=5, hp=5, od=5, ar=8 
+        ):
         self.metadata = {
             'title': title,
             'artist': artist,
             'creator': creator,
             'version': version
         }
-        self.metadata_f = f"[Metadata]\nTitle:{title}\nArtist:{artist}\nCreator:{creator}\nVersion:{version}\n"
+        self.diff = {
+            'cs': cs,  'hp': hp,
+            'od': od,  'ar': ar
+        }
         self.circles = []
+        self._map_data_update()
+
+    def _map_data_update(self):
+        md = self.metadata
+        self.name = f'{md['artist']} - {md['title']} ({md['creator']}) [{md['version']}].osu'
+
+        metadata = [
+            f"[Metadata]",
+            f"Title:{md['title']}",
+            f"Artist:{md['artist']}",
+            f"Creator:{md['creator']}",
+            f"Version:{md['version']}",
+        ]
+        self.smetadata = '\n'.join(metadata)
+
+        dd = self.diff
+        diff = [
+            "[Difficulty]",
+            f"HPDrainRate:{dd['hp']}",
+            f"CircleSize:{dd['cs']}",
+            f"OverallDifficulty:{dd['od']}",
+            f"ApproachRate:{dd['ar']}",
+            f"SliderMultiplier:1.4",
+            f"SliderTickRate:1"
+        ]
+
+        self.sdiff = '\n'.join(diff)
 
     def add_circle(self, x: int, y: int, time_ms: int):
-        # x, y, time, type=1 (Circle), hitSound=0
         self.circles.append(f"{x},{y},{time_ms},1,0,0:0:0:0:")
 
-    def save(self, filepath: str):
+    def _create_temp_file(self):
+        self.temp_file.mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(self.temp_file)
+        self.temp_file.mkdir(parents=True, exist_ok=True)
+        print('>>> temp folder clear and crear')
+
+    def save(self):
         content = [
             "osu file format v14\n",
             "[General]\nAudioFilename: audio.mp3\nMode: 0\n",
-            self.metadata_f,
-            "[Difficulty]\nHPDrainRate:5\nCircleSize:4\nOverallDifficulty:5\nApproachRate:8\nSliderMultiplier:1.4\nSliderTickRate:1\n",
+            self.smetadata,
+            self.sdiff,
             "[TimingPoints]\n0,500,4,1,0,100,1,0\n",  # Základní timing (120 BPM)
             "[HitObjects]"
         ] + self.circles
         
-        temp_f = BASE_DIR / 'temp' 
-        temp_f.mkdir(parents=True, exist_ok=True)
+        self.temp_file = BASE_DIR / 'temp'
+        self._create_temp_file()
 
-        filepath = BASE_DIR / f'{filepath}'
+        filepath = BASE_DIR / f'output'
             
-        i = self.metadata
-        name = f'{i['artist']} - {i['title']} ({i['creator']}) [{i['version']}].osu'
-
-        path = temp_f / name
+        path = self.temp_file / self.name
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(content))
 
         temp_f = BASE_DIR / 'temp' 
-        shutil.make_archive(filepath, 'zip',  temp_f)
+        shutil.make_archive(f'{filepath}', 'zip',  temp_f)
        
         os.rename(f"{filepath}.zip", f"{filepath}.osz")
         shutil.rmtree(temp_f)
 
 if __name__ == '__main__':
-    builder = OsuBuilder(title="Test", version="Hard")
-    builder.add_circle(256, 192, 1000)
-    builder.add_circle(100, 100, 2000)
-    builder.save("output1")
+    builder = OsuBuilder(title="Test", version="Hard", cs=10)
+    offset = 0
+    for i in range(0, 512, 16):
+        for x in range(0, 384, 16):
+            offset += 1
+            builder.add_circle(i+8, x+8, 1000+offset)
+    builder.save()
             
 
 

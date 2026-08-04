@@ -4,21 +4,25 @@ import numpy as np
 from tqdm import tqdm
 from OsuBuilder import OsuBuilder
 
-builder = OsuBuilder(title="Test", version="Hard")
-builder.add_circle(256, 192, 1000)
-builder.add_circle(100, 100, 2000)
-builder.save("output.osu")
+CS = 6
 
-sys.exit(0)
+def cs_to_scale(cs):
+    r = (54.4 - (4.48 * cs)) 
+    d = r * 2
+    return round(r), round(d)
+
+cr, cd = cs_to_scale(CS)
+w = 512 // cd
+h = 384 // cd
 
 video_path = "bad_apple.mp4"
 cap = cv2.VideoCapture(video_path)
 
 # --- Nastavení parametrů ---
-start_sec = 1.5
-end_sec = 5.0
+start_sec = 0
+end_sec = 60.0
 target_fps = 5
-target_size = (512 // 16, 384 // 16)
+target_size = (w, h)
 
 # --- Získání vlastností ---
 native_fps = cap.get(cv2.CAP_PROP_FPS)
@@ -75,8 +79,19 @@ fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Kodek pro MP4 (případně 'avc1' ne
 out = cv2.VideoWriter(output_filename, fourcc, fps, (width, height))
 
 # 2. Zápis snímků
+map = OsuBuilder(title="Test", version="Hard", cs=CS)
+
+d, h, w = video_matrix.shape
+
+offset = 0
 for frame in video_matrix:
-    print(frame)
+    offset += 1000
+
+    for y in range(0, h):
+        for x in range(0, w):
+            if frame[y][x] == 0:
+                map.add_circle(cr + (cd * x), cr + (cd * y), offset)
+
     # Převod z hodnot 0/1 na 0/255 (černá/bílá)
     frame_255 = (frame * 255).astype(np.uint8)
 
@@ -84,6 +99,8 @@ for frame in video_matrix:
     frame_bgr = cv2.cvtColor(frame_255, cv2.COLOR_GRAY2BGR)
 
     out.write(frame_bgr)
+
+map.save()
 
 out.release()
 print(f"MP4 video bylo úspěšně uloženo do {output_filename}")
