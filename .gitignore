@@ -2,6 +2,8 @@
 .env
 
 **/__pycache__/
+*.osz
+!test_map.osz
 
 digest.txt
 vystup.mp4

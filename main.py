@@ -1,30 +1,67 @@
-import sys
 import cv2
 import numpy as np
 from tqdm import tqdm
 from OsuBuilder import OsuBuilder
 
-CS = 6
+def ar_to_ms(ar: float, od:  float):
+    if   ar < 5 : t = 1200 + 120 * (5 - ar)
+    elif ar == 5: t = 1200 
+    else:         t = 1200 - 150 * (ar - 5)
+    
+    w50 = 200 - 10 * od
+    
+    return t + w50
 
 def cs_to_scale(cs):
     r = (54.4 - (4.48 * cs)) 
-    d = r * 2
-    return round(r), round(d)
+    return r
 
-cr, cd = cs_to_scale(CS)
-w = 512 // cd
-h = 384 // cd
+class OsuAsMp4Player:
+    def __init__(self) -> None:
+        self.get_stats()
 
+    def get_stats(self): 
+        for cs in range(0, 12, 1):
+            r = cs_to_scale(cs)
+            print(cs, r)
+
+        for od in range(0, 12):
+            for ar in range(0, 12):
+                for hd in [True, False]:
+                    ms = self.arod_to_ms(ar, od, use_hd=hd)
+                    fps = 1000 / ms
+                    print(f'AR: {ar:2d}, OD: {od:2d}, HD: {str(hd):<5} | Doba noty: {ms:6.1f} ms -> {fps:.2f}fps')
+
+    @staticmethod
+    def cs_to_scale(cs: float):
+        r = (54.4 - (4.48 * cs)) 
+        return r
+
+    @staticmethod
+    def arod_to_ms(ar: float, od:float, use_hd: bool = False):
+        if   ar < 5 : t = 1200 + 120 * (5 - ar)
+        elif ar == 5: t = 1200 
+        else:         t = 1200 - 150 * (ar - 5)
+        
+        if use_hd: 
+            return t * 0.7
+
+        w50 = 200 - 10 * od
+        
+        return t + w50
+
+if __name__ == "__main__":
+    app = OsuAsMp4Player()
+
+'''
 video_path = "bad_apple.mp4"
 cap = cv2.VideoCapture(video_path)
 
-# --- Nastavení parametrů ---
 start_sec = 0
 end_sec = 60.0
 target_fps = 5
 target_size = (w, h)
 
-# --- Získání vlastností ---
 native_fps = cap.get(cv2.CAP_PROP_FPS)
 total_native_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -42,14 +79,12 @@ next_target_frame = float(start_frame)
 
 expected_frames = int((end_frame - start_frame) / step)
 
-with tqdm(total=expected_frames, desc="Rychlé zpracování", unit="frame") as pbar:
+with tqdm(total=expected_frames, desc="Process video", unit="frame") as pbar:
     while current_native_frame < end_frame:
-        # Plynulé čtení bez cap.set()
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Uložíme pouze snímek, který odpovídá našemu cílovému FPS
         if current_native_frame >= next_target_frame:
             resized = cv2.resize(
                 frame, target_size, interpolation=cv2.INTER_AREA
@@ -67,18 +102,14 @@ with tqdm(total=expected_frames, desc="Rychlé zpracování", unit="frame") as p
 cap.release()
 
 video_matrix = np.array(frames_array, dtype=np.uint8)
-print("Hotovo! Rychlost je zpět. Tvar:", video_matrix.shape)
-
 
 output_filename = "vystup.mp4"
-fps = target_fps  # Vaše cílové FPS (např. 10)
+fps = target_fps
 height, width = target_size[1], target_size[0]
 
-# 1. Definice kodeku a vytvoření VideoWriteru
-fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Kodek pro MP4 (případně 'avc1' nebo 'XVID')
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 out = cv2.VideoWriter(output_filename, fourcc, fps, (width, height))
 
-# 2. Zápis snímků
 map = OsuBuilder(title="Test", version="Hard", cs=CS)
 
 d, h, w = video_matrix.shape
@@ -92,15 +123,16 @@ for frame in video_matrix:
             if frame[y][x] == 0:
                 map.add_circle(cr + (cd * x), cr + (cd * y), offset)
 
-    # Převod z hodnot 0/1 na 0/255 (černá/bílá)
     frame_255 = (frame * 255).astype(np.uint8)
 
-    # MP4 vyžaduje 3-kanálový obraz (BGR)
     frame_bgr = cv2.cvtColor(frame_255, cv2.COLOR_GRAY2BGR)
 
     out.write(frame_bgr)
 
-map.save()
+map.save('output')
 
 out.release()
-print(f"MP4 video bylo úspěšně uloženo do {output_filename}")
+'''
+
+
+
