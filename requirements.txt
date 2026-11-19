@@ -1,7 +1,8 @@
 opencv-python 
 numpy
 tqdm
-
+opymapper
+native_file_dialog
 
 
 
