@@ -11,4 +11,5 @@ I will have solution for you in any time.
     - [ ] form arry of frame create notes
     - [ ] convert notes next to each chader into one slider
 - [ ] generate opymapper
+- [ ] check if target args are posible in OSU!lazer
 

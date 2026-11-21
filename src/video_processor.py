@@ -1,42 +1,55 @@
 import subprocess
+import time
 
 import numpy as np
 
-INPUT = "input.mp4"
-W, H = 640, 360
-FPS = 10
-CHANNELS = 3
-PIX_FMT = "rgb24" if CHANNELS == 3 else "gray"
+from . import map_generator
 
-cmd = [
-    "ffmpeg",
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-i",
-    INPUT,
-    "-vf",
-    f"scale={W}:{H},fps={FPS}",
-    "-pix_fmt",
-    PIX_FMT,
-    "-f",
-    "rawvideo",
-    "-",
-]
+THRESHOLD = 128
 
-frame_bytes = W * H * CHANNELS
 
-with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
-    idx = 0
-    while True:
-        raw = proc.stdout.read(frame_bytes)
-        if len(raw) < frame_bytes:
+def ms_to_fps(ms):
+    if ms <= 0:
+        return 0
+    return 1000 / ms
+
+
+def main(vals, args):
+    mg = map_generator.MapGenerator()
+
+    width = vals["resolution"]["w"]
+    height = vals["resolution"]["h"]
+    fps = ms_to_fps(vals["offset"])
+
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        str(args.file),
+        "-vf",
+        f"scale={width}:{height},fps={fps},format=gray",
+        "-pix_fmt",
+        "gray",
+        "-f",
+        "rawvideo",
+        "-",
+    ]
+
+    frame_bytes = width * height  # gray = 1 kanál
+
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+        while True:
+            raw = proc.stdout.read(frame_bytes)
+            if len(raw) < frame_bytes:
+                break
+
+            frame = np.frombuffer(raw, np.uint8).reshape(height, width)
+
+            # 1 = světlý pixel (bílý), 0 = tmavý (černý)
+            binary = (frame > THRESHOLD).astype(np.uint8)
+
+            mg.process_frame(frame)
+
             break
-        frame = np.frombuffer(raw, np.uint8).reshape(H, W, CHANNELS)
-
-        # --- tady máš přístup k pixelům ---
-        # frame[y, x]      -> pixel
-        # frame[:, :, 0]   -> R kanál (u rgb24)
-        # frame.mean()     -> průměr
-        print(idx, frame.shape, frame.dtype, frame[0, 0])
-        idx += 1
